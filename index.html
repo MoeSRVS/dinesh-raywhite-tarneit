@@ -806,22 +806,37 @@
 </div>
 
 
-<script>
-  // ── SHEET CONFIG ──
-  // Google Sheet ID created via Google Drive MCP
-  const SHEET_ID = '1FHPT1XSa9zFb6iS-FLfHGA9vU5WMm9KTOCDnLT5bMEE';
-  const SHEET_NAME = 'Sheet1';
+<!-- Hidden iframe — receives Apps Script response without page reload -->
+<iframe name="hidden-iframe" id="hidden-iframe" style="display:none;"></iframe>
 
-  // ── MODAL ──
+<!-- Hidden form — posts directly to Apps Script, zero CORS issues -->
+<form
+  id="lead-form"
+  action="https://script.google.com/macros/s/AKfycbz6eE8CmBzFeBr8B7F54McqCiuMAHxY1FLebHYYXiKGLDdcuaOsx6-yFu-4zZ5LUPl71A/exec"
+  method="POST"
+  target="hidden-iframe"
+  style="display:none;">
+  <input type="text" name="timestamp" id="h-timestamp">
+  <input type="text" name="first"     id="h-first">
+  <input type="text" name="last"      id="h-last">
+  <input type="text" name="phone"     id="h-phone">
+  <input type="text" name="email"     id="h-email">
+  <input type="text" name="suburb"    id="h-suburb">
+  <input type="text" name="interest"  id="h-interest">
+  <input type="text" name="message"   id="h-message">
+</form>
+
+<script>
+  // ── MODAL OPEN ──
   function openModal(type) {
-    const overlay = document.getElementById('modal-overlay');
-    const title   = document.getElementById('modal-title');
-    const sub     = document.getElementById('modal-sub');
-    const interest = document.getElementById('f-interest');
+    var overlay  = document.getElementById('modal-overlay');
+    var title    = document.getElementById('modal-title');
+    var sub      = document.getElementById('modal-sub');
+    var interest = document.getElementById('f-interest');
 
     if (type === 'buy') {
       title.textContent = 'Find Your Perfect Home in the West';
-      sub.textContent   = 'Tell us what you\'re looking for and Dinesh will be in touch.';
+      sub.textContent   = "Tell us what you're looking for and Dinesh will be in touch.";
       interest.value    = 'Buying a property';
     } else {
       title.textContent = 'Get Your Free Property Appraisal';
@@ -845,83 +860,75 @@
 
   function resetForm() {
     document.getElementById('form-state').style.display = 'block';
-    document.getElementById('ty-state').style.display = 'none';
-    document.getElementById('status-msg').className = 'status-msg';
-    document.getElementById('status-msg').textContent = '';
-    ['f-first','f-last','f-phone','f-email','f-suburb','f-message'].forEach(id => {
+    document.getElementById('ty-state').style.display   = 'none';
+    document.getElementById('status-msg').className     = 'status-msg';
+    document.getElementById('status-msg').textContent   = '';
+    ['f-first','f-last','f-phone','f-email','f-suburb','f-message'].forEach(function(id) {
       document.getElementById(id).value = '';
     });
-    const btn = document.getElementById('submit-btn');
-    btn.disabled = false;
-    document.getElementById('btn-text').innerHTML = 'Send My Enquiry →';
+    document.getElementById('submit-btn').disabled = false;
+    document.getElementById('btn-text').innerHTML  = 'Send My Enquiry →';
   }
 
-  // ── CONFIG ──
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz6eE8CmBzFeBr8B7F54McqCiuMAHxY1FLebHYYXiKGLDdcuaOsx6-yFu-4zZ5LUPl71A/exec';
+  // ── SUBMIT (hidden form + iframe = bulletproof, no CORS) ──
+  function submitForm() {
+    var first    = document.getElementById('f-first').value.trim();
+    var last     = document.getElementById('f-last').value.trim();
+    var phone    = document.getElementById('f-phone').value.trim();
+    var email    = document.getElementById('f-email').value.trim();
+    var suburb   = document.getElementById('f-suburb').value;
+    var interest = document.getElementById('f-interest').value;
+    var message  = document.getElementById('f-message').value.trim();
 
-  // ── SUBMIT ──
-  async function submitForm() {
-    const first    = document.getElementById('f-first').value.trim();
-    const last     = document.getElementById('f-last').value.trim();
-    const phone    = document.getElementById('f-phone').value.trim();
-    const email    = document.getElementById('f-email').value.trim();
-    const suburb   = document.getElementById('f-suburb').value;
-    const interest = document.getElementById('f-interest').value;
-    const message  = document.getElementById('f-message').value.trim();
-
+    // Validate required fields
     if (!first || !last || !phone || !suburb || !interest) {
       showStatus('error', '⚠️ Please fill in all required fields.');
       return;
     }
 
-    const btn = document.getElementById('submit-btn');
-    btn.disabled = true;
-    document.getElementById('btn-text').innerHTML = '<span class="spinner"></span> &nbsp;Saving your details…';
+    // Show loading state
+    document.getElementById('submit-btn').disabled = true;
+    document.getElementById('btn-text').innerHTML  = '<span class="spinner"></span>&nbsp; Saving your details…';
     showStatus('', '');
 
-    const timestamp = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' });
+    // Timestamp in Melbourne time
+    var timestamp = new Date().toLocaleString('en-AU', { timeZone: 'Australia/Melbourne' });
 
-    // Build URL params — GET request is the most reliable method with Apps Script + no-cors
-    const params = new URLSearchParams({
-      timestamp,
-      first,
-      last,
-      phone,
-      email:    email   || '',
-      suburb,
-      interest,
-      message:  message || ''
-    });
+    // Populate hidden form fields
+    document.getElementById('h-timestamp').value = timestamp;
+    document.getElementById('h-first').value     = first;
+    document.getElementById('h-last').value      = last;
+    document.getElementById('h-phone').value     = phone;
+    document.getElementById('h-email').value     = email   || '';
+    document.getElementById('h-suburb').value    = suburb;
+    document.getElementById('h-interest').value  = interest;
+    document.getElementById('h-message').value   = message || '';
 
-    const fullURL = APPS_SCRIPT_URL + '?' + params.toString();
+    // Submit hidden form to Apps Script via iframe — no CORS, no redirects
+    document.getElementById('lead-form').submit();
 
-    // Fire GET via image tag — bypasses CORS completely, always works
-    const img = new Image();
-    img.src = fullURL;
-
-    // Also fire a no-cors fetch as backup
-    try {
-      fetch(fullURL, { method: 'GET', mode: 'no-cors' });
-    } catch(e) {}
-
-    // Wait 1.5s then show thank you — gives Apps Script time to receive
-    setTimeout(() => { showThankYou(first); }, 1500);
+    // Show thank you screen after 2.5s (enough time for Apps Script to save)
+    setTimeout(function() {
+      showThankYou(first);
+    }, 2500);
   }
 
   function showThankYou(name) {
     document.getElementById('form-state').style.display = 'none';
-    document.getElementById('ty-state').style.display = 'block';
-    document.getElementById('ty-name').textContent = name;
+    document.getElementById('ty-state').style.display   = 'block';
+    document.getElementById('ty-name').textContent      = name;
   }
 
   function showStatus(type, msg) {
-    const el = document.getElementById('status-msg');
+    var el       = document.getElementById('status-msg');
     el.className = 'status-msg' + (type ? ' ' + type : '');
     el.textContent = msg;
   }
 
-  // Keyboard close
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  // Close modal on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+  });
 </script>
 
 
